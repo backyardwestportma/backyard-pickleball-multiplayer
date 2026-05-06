@@ -1,19 +1,25 @@
 const socket = io();
+
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-let mode = "ai";
+let mode = null;
 let roomCode = null;
 let playerName = "";
-let difficulty = 1;
+let playerIndex = 1;
 
 let paddleY = 250;
 let opponentY = 250;
+
 let ball = { x: 200, y: 300, vx: 5, vy: 3, r: 12 };
 let score = [0, 0];
 
 const paddleH = 90;
 const paddleW = 12;
+
+let gameStarted = false;
+
+// ================= UI NAV =================
 
 function showAI() {
   document.getElementById("menu").classList.add("hidden");
@@ -25,11 +31,15 @@ function showMulti() {
   document.getElementById("multiMenu").classList.remove("hidden");
 }
 
+// ================= AI =================
+
 function startAI(level) {
-  difficulty = level;
   mode = "ai";
+  document.getElementById("aiMenu").classList.add("hidden");
   startGame();
 }
+
+// ================= MULTI =================
 
 function createGame() {
   playerName = document.getElementById("nameInput").value || "Player 1";
@@ -42,51 +52,86 @@ function joinGame() {
   socket.emit("joinGame", { code: roomCode, name: playerName });
 }
 
-socket.on("gameCreated", code => {
-  roomCode = code;
-  alert("Share code: " + code);
+socket.on("waiting", (data) => {
+  roomCode = data.code;
+
+  document.getElementById("multiMenu").classList.add("hidden");
+  document.getElementById("waitingScreen").classList.remove("hidden");
+  document.getElementById("roomCode").innerText = roomCode;
 });
 
-socket.on("startGame", () => {
-  mode = "multi";
-  startGame();
+socket.on("bothReady", (data) => {
+  document.getElementById("waitingScreen").classList.add("hidden");
+
+  playerIndex = data.players[0].id === socket.id ? 0 : 1;
+
+  startCountdown();
 });
 
-socket.on("update", state => {
-  opponentY = state.paddleY;
+socket.on("opponentMove", (y) => {
+  opponentY = y;
 });
+
+// ================= COUNTDOWN =================
+
+function startCountdown() {
+  let count = 5;
+
+  const screen = document.getElementById("countdownScreen");
+  const text = document.getElementById("countdownText");
+
+  screen.classList.remove("hidden");
+
+  const interval = setInterval(() => {
+    text.innerText = count;
+    count--;
+
+    if (count < 0) {
+      clearInterval(interval);
+      screen.classList.add("hidden");
+
+      mode = "multi";
+      startGame();
+    }
+  }, 1000);
+}
+
+// ================= GAME START =================
 
 function startGame() {
-  document.getElementById("menu").classList.add("hidden");
-  document.getElementById("aiMenu").classList.add("hidden");
-  document.getElementById("multiMenu").classList.add("hidden");
+  gameStarted = true;
   gameLoop();
 }
 
-function setPaddleFromTouch(clientY) {
+// ================= CONTROLS =================
+
+function setPaddle(clientY) {
   const rect = canvas.getBoundingClientRect();
   const scaleY = canvas.height / rect.height;
+
   paddleY = (clientY - rect.top) * scaleY - paddleH / 2;
   paddleY = Math.max(0, Math.min(canvas.height - paddleH, paddleY));
 
   if (mode === "multi") {
-    socket.emit("update", { code: roomCode, state: { paddleY } });
+    socket.emit("paddleMove", { code: roomCode, y: paddleY });
   }
 }
 
-canvas.addEventListener("touchstart", e => {
+canvas.addEventListener("touchstart", (e) => {
   e.preventDefault();
-  setPaddleFromTouch(e.touches[0].clientY);
+  setPaddle(e.touches[0].clientY);
 }, { passive: false });
 
-canvas.addEventListener("touchmove", e => {
+canvas.addEventListener("touchmove", (e) => {
   e.preventDefault();
-  setPaddleFromTouch(e.touches[0].clientY);
+  setPaddle(e.touches[0].clientY);
 }, { passive: false });
 
-canvas.addEventListener("pointermove", e => {
-  setPaddleFromTouch(e.clientY);
+canvas.addEventListener("pointermove", (e) => {
+  setPaddle(e.clientY);
 });
+
+// ================= GAME LOGIC =================
 
 function resetBall(direction = 1) {
   ball.x = 200;
@@ -99,56 +144,55 @@ function updateGame() {
   ball.x += ball.vx;
   ball.y += ball.vy;
 
+  // bounce walls
   if (ball.y - ball.r <= 0 || ball.y + ball.r >= 600) {
     ball.vy *= -1;
   }
 
+  // AI movement
   if (mode === "ai") {
-    const aiSpeed = difficulty === 1 ? 3 : difficulty === 2 ? 5 : 7;
-    const target = ball.y - paddleH / 2;
-    opponentY += Math.sign(target - opponentY) * Math.min(Math.abs(target - opponentY), aiSpeed);
-    opponentY = Math.max(0, Math.min(600 - paddleH, opponentY));
+    opponentY += (ball.y - opponentY) * 0.05;
   }
 
-  // left paddle collision
+  // LEFT paddle collision
   if (
     ball.x - ball.r <= 42 &&
-    ball.x + ball.r >= 30 &&
     ball.y >= opponentY &&
     ball.y <= opponentY + paddleH &&
     ball.vx < 0
   ) {
-    ball.vx *= -1.08;
-    ball.vy += (ball.y - (opponentY + paddleH / 2)) * 0.08;
+    ball.vx *= -1.1;
   }
 
-  // right paddle collision
+  // RIGHT paddle collision
   if (
     ball.x + ball.r >= 360 &&
-    ball.x - ball.r <= 372 &&
     ball.y >= paddleY &&
     ball.y <= paddleY + paddleH &&
     ball.vx > 0
   ) {
-    ball.vx *= -1.08;
-    ball.vy += (ball.y - (paddleY + paddleH / 2)) * 0.08;
+    ball.vx *= -1.1;
   }
 
-  if (ball.x < -20) {
+  // scoring
+  if (ball.x < 0) {
     score[1]++;
     resetBall(1);
   }
 
-  if (ball.x > 420) {
+  if (ball.x > 400) {
     score[0]++;
     resetBall(-1);
   }
 
+  // win
   if (score[0] >= 7 || score[1] >= 7) {
     alert(score[1] > score[0] ? "You win!" : "Backyard wins!");
     location.reload();
   }
 }
+
+// ================= DRAW =================
 
 function drawPickle() {
   ctx.fillStyle = "#5e8c3b";
@@ -165,12 +209,14 @@ function drawPickle() {
 function draw() {
   ctx.clearRect(0, 0, 400, 600);
 
+  // court
   ctx.fillStyle = "#0C2B68";
   ctx.fillRect(0, 0, 400, 600);
 
   ctx.strokeStyle = "white";
   ctx.lineWidth = 3;
   ctx.strokeRect(10, 10, 380, 580);
+
   ctx.setLineDash([10, 10]);
   ctx.beginPath();
   ctx.moveTo(200, 20);
@@ -178,25 +224,31 @@ function draw() {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  ctx.globalAlpha = 0.12;
+  // watermark
+  ctx.globalAlpha = 0.1;
   ctx.fillStyle = "white";
   ctx.font = "bold 36px sans-serif";
   ctx.textAlign = "center";
   ctx.fillText("BACKYARD", 200, 300);
   ctx.globalAlpha = 1;
 
+  // paddles
   ctx.fillStyle = "white";
   ctx.fillRect(30, opponentY, paddleW, paddleH);
   ctx.fillRect(360, paddleY, paddleW, paddleH);
 
   drawPickle();
 
+  // score
   ctx.font = "bold 24px sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText(`${score[0]}  —  ${score[1]}`, 200, 40);
+  ctx.fillText(`${score[0]} — ${score[1]}`, 200, 40);
 }
 
+// ================= LOOP =================
+
 function gameLoop() {
+  if (!gameStarted) return;
+
   updateGame();
   draw();
   requestAnimationFrame(gameLoop);

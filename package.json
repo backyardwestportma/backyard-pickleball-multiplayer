@@ -1,6 +1,6 @@
 {
-  "name": "backyard-pickleball-multiplayer",
-  "version": "3.0.0",
+  "name": "pickle-pong-backyard",
+  "version": "1.0.0",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

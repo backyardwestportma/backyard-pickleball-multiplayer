@@ -17,7 +17,6 @@ function resetBall(room, dir = 1) {
 }
 
 io.on("connection", socket => {
-
   socket.on("createGame", name => {
     const code = makeCode();
 
@@ -47,14 +46,22 @@ io.on("connection", socket => {
     io.to(code).emit("bothReady", { players: room.players });
 
     let count = 5;
-    const timer = setInterval(() => {
-      io.to(code).emit("countdown", count);
-      count--;
 
-      if (count < 0) {
+    const timer = setInterval(() => {
+      if (count > 0) {
+        io.to(code).emit("countdown", count);
+        count--;
+      } else {
         clearInterval(timer);
         room.playing = true;
         resetBall(room, 1);
+
+        io.to(code).emit("startGame", {
+          players: room.players,
+          paddles: room.paddles,
+          ball: room.ball,
+          score: room.score
+        });
 
         room.loop = setInterval(() => {
           if (!room.playing) return;
@@ -101,10 +108,8 @@ io.on("connection", socket => {
                 : room.players[1].name
             });
           }
-
         }, 1000 / 30);
       }
-
     }, 1000);
   });
 
@@ -113,11 +118,11 @@ io.on("connection", socket => {
     if (!room) return;
 
     const index = room.players.findIndex(p => p.id === socket.id);
+
     if (index !== -1) {
       room.paddles[index] = Math.max(0, Math.min(510, y));
     }
   });
-
 });
 
 http.listen(process.env.PORT || 3000);

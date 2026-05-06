@@ -17,7 +17,11 @@ io.on("connection", (socket) => {
     };
 
     socket.join(code);
-    socket.emit("waiting", code);
+
+    socket.emit("waiting", {
+      code,
+      name
+    });
   });
 
   socket.on("joinGame", ({ code, name }) => {
@@ -27,12 +31,20 @@ io.on("connection", (socket) => {
       room.players.push({ id: socket.id, name });
       socket.join(code);
 
-      // notify both players
-      io.to(code).emit("bothReady", room.players);
+      io.to(code).emit("bothReady", {
+        players: room.players
+      });
     } else {
-      socket.emit("errorMessage", "Invalid or full room");
+      socket.emit("errorMessage", "Game not found or full");
     }
   });
 
+  socket.on("paddleMove", ({ code, y }) => {
+    socket.to(code).emit("opponentMove", y);
+  });
+
 });
-http.listen(process.env.PORT || 3000);
+
+http.listen(process.env.PORT || 3000, () => {
+  console.log("Server running");
+});

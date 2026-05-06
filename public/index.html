@@ -1,12 +1,30 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Backyard Pickleball</title>
-  <link rel="stylesheet" href="styles.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Pickle Pong</title>
+<link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
 
 <div id="menu">
+  <h1>PICKLE PONG</h1>
+  <p>@ BACKYARD WESTPORT MA</p>
+
+  <input id="nameInput" placeholder="Enter your name">
+
+  <button onclick="showAI()">Play Backyard</button>
+  <button onclick="showMulti()">Challenge Another Guest</button>
+</div>
+
+<div id="aiMenu" class="hidden">
+  <button onclick="startAI(1)">Easy</button>
+  <button onclick="startAI(2)">Medium</button>
+  <button onclick="startAI(3)">Hard</button>
+</div>
+
+<div id="multiMenu" class="hidden">
   <button onclick="createGame()">Create Game</button>
   <input id="codeInput" placeholder="Enter Code">
   <button onclick="joinGame()">Join Game</button>

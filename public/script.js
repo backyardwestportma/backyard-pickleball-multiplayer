@@ -3,23 +3,21 @@ const socket = io();
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-let mode = null;
 let roomCode = null;
-let playerName = "";
 let playerIndex = 1;
+let gameStarted = false;
 
 let paddleY = 250;
 let opponentY = 250;
 
-let ball = { x: 200, y: 300, vx: 5, vy: 3, r: 12 };
+let ball = { x: 200, y: 300, r: 12 };
 let score = [0, 0];
+let players = [];
 
 const paddleH = 90;
 const paddleW = 12;
 
-let gameStarted = false;
-
-// ================= UI NAV =================
+// ================= MENU =================
 
 function showAI() {
   document.getElementById("menu").classList.add("hidden");
@@ -31,90 +29,80 @@ function showMulti() {
   document.getElementById("multiMenu").classList.remove("hidden");
 }
 
-// ================= AI =================
-
-function startAI(level) {
-  mode = "ai";
-  document.getElementById("aiMenu").classList.add("hidden");
-  startGame();
-}
-
-// ================= MULTI =================
+// ================= MULTIPLAYER =================
 
 function createGame() {
-  playerName = document.getElementById("nameInput").value || "Player 1";
-  socket.emit("createGame", playerName);
+  const name = document.getElementById("nameInput").value || "Player 1";
+  socket.emit("createGame", name);
 }
 
 function joinGame() {
-  playerName = document.getElementById("nameInput").value || "Player 2";
-  roomCode = document.getElementById("codeInput").value;
-  socket.emit("joinGame", { code: roomCode, name: playerName });
+  const name = document.getElementById("nameInput").value || "Player 2";
+  const code = document.getElementById("codeInput").value;
+  roomCode = code;
+  socket.emit("joinGame", { code, name });
 }
 
+// waiting screen
 socket.on("waiting", (data) => {
   roomCode = data.code;
-
   document.getElementById("multiMenu").classList.add("hidden");
   document.getElementById("waitingScreen").classList.remove("hidden");
   document.getElementById("roomCode").innerText = roomCode;
 });
 
+// both players joined
 socket.on("bothReady", (data) => {
+  players = data.players;
+});
+
+// countdown
+socket.on("countdown", (count) => {
   document.getElementById("waitingScreen").classList.add("hidden");
-
-  playerIndex = data.players[0].id === socket.id ? 0 : 1;
-
-  startCountdown();
+  document.getElementById("countdownScreen").classList.remove("hidden");
+  document.getElementById("countdownText").innerText = count;
 });
 
-socket.on("opponentMove", (y) => {
-  opponentY = y;
-});
+// start game
+socket.on("startGame", (data) => {
+  players = data.players;
+  ball = data.ball;
+  score = data.score;
 
-// ================= COUNTDOWN =================
+  playerIndex = players.findIndex(p => p.id === socket.id);
 
-function startCountdown() {
-  let count = 5;
+  document.getElementById("countdownScreen").classList.add("hidden");
 
-  const screen = document.getElementById("countdownScreen");
-  const text = document.getElementById("countdownText");
-
-  screen.classList.remove("hidden");
-
-  const interval = setInterval(() => {
-    text.innerText = count;
-    count--;
-
-    if (count < 0) {
-      clearInterval(interval);
-      screen.classList.add("hidden");
-
-      mode = "multi";
-      startGame();
-    }
-  }, 1000);
-}
-
-// ================= GAME START =================
-
-function startGame() {
   gameStarted = true;
   gameLoop();
-}
+});
+
+// live game updates (THIS FIXES EVERYTHING)
+socket.on("gameState", (state) => {
+  opponentY = state.paddles[1 - playerIndex];
+  paddleY = state.paddles[playerIndex];
+  ball = state.ball;
+  score = state.score;
+});
+
+// opponent leaves
+socket.on("opponentLeft", () => {
+  alert("Opponent left the game");
+  location.reload();
+});
 
 // ================= CONTROLS =================
 
 function setPaddle(clientY) {
+  if (!gameStarted) return;
+
   const rect = canvas.getBoundingClientRect();
   const scaleY = canvas.height / rect.height;
 
   paddleY = (clientY - rect.top) * scaleY - paddleH / 2;
   paddleY = Math.max(0, Math.min(canvas.height - paddleH, paddleY));
 
-  if (mode === "multi") {
-    socket.emit("paddleMove", { code: roomCode, y: paddleY });
-  }
+  socket.emit("paddleMove", { code: roomCode, y: paddleY });
 }
 
 canvas.addEventListener("touchstart", (e) => {
@@ -130,67 +118,6 @@ canvas.addEventListener("touchmove", (e) => {
 canvas.addEventListener("pointermove", (e) => {
   setPaddle(e.clientY);
 });
-
-// ================= GAME LOGIC =================
-
-function resetBall(direction = 1) {
-  ball.x = 200;
-  ball.y = 300;
-  ball.vx = 5 * direction;
-  ball.vy = Math.random() > 0.5 ? 3 : -3;
-}
-
-function updateGame() {
-  ball.x += ball.vx;
-  ball.y += ball.vy;
-
-  // bounce walls
-  if (ball.y - ball.r <= 0 || ball.y + ball.r >= 600) {
-    ball.vy *= -1;
-  }
-
-  // AI movement
-  if (mode === "ai") {
-    opponentY += (ball.y - opponentY) * 0.05;
-  }
-
-  // LEFT paddle collision
-  if (
-    ball.x - ball.r <= 42 &&
-    ball.y >= opponentY &&
-    ball.y <= opponentY + paddleH &&
-    ball.vx < 0
-  ) {
-    ball.vx *= -1.1;
-  }
-
-  // RIGHT paddle collision
-  if (
-    ball.x + ball.r >= 360 &&
-    ball.y >= paddleY &&
-    ball.y <= paddleY + paddleH &&
-    ball.vx > 0
-  ) {
-    ball.vx *= -1.1;
-  }
-
-  // scoring
-  if (ball.x < 0) {
-    score[1]++;
-    resetBall(1);
-  }
-
-  if (ball.x > 400) {
-    score[0]++;
-    resetBall(-1);
-  }
-
-  // win
-  if (score[0] >= 7 || score[1] >= 7) {
-    alert(score[1] > score[0] ? "You win!" : "Backyard wins!");
-    location.reload();
-  }
-}
 
 // ================= DRAW =================
 
@@ -239,9 +166,19 @@ function draw() {
 
   drawPickle();
 
-  // score
-  ctx.font = "bold 24px sans-serif";
-  ctx.fillText(`${score[0]} — ${score[1]}`, 200, 40);
+  // score + names
+  ctx.font = "bold 20px sans-serif";
+  ctx.textAlign = "center";
+
+  if (players.length === 2) {
+    ctx.fillText(
+      `${players[0].name} ${score[0]} — ${score[1]} ${players[1].name}`,
+      200,
+      40
+    );
+  } else {
+    ctx.fillText(`${score[0]} — ${score[1]}`, 200, 40);
+  }
 }
 
 // ================= LOOP =================
@@ -249,7 +186,6 @@ function draw() {
 function gameLoop() {
   if (!gameStarted) return;
 
-  updateGame();
   draw();
   requestAnimationFrame(gameLoop);
 }

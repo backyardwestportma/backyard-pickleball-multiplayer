@@ -7,7 +7,7 @@ html, body {
   position: fixed;
   background: #0C2B68;
   color: white;
-  font-family: sans-serif;
+  font-family: Arial, sans-serif;
   touch-action: none;
 }
 
@@ -20,21 +20,51 @@ canvas {
 }
 
 .hidden {
-  display: none;
+  display: none !important;
 }
 
-button, input {
-  padding: 14px;
-  margin: 8px;
-  font-size: 18px;
-}
-
-#menu, #aiMenu, #multiMenu {
+#menu, #aiMenu, #multiMenu, #waitingScreen, #countdownScreen {
   position: fixed;
   inset: 0;
+  z-index: 10;
   background: #0C2B68;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  gap: 12px;
+  text-align: center;
+  padding: 24px;
+}
+
+h1 {
+  font-size: 42px;
+  margin: 0;
+}
+
+h2 {
+  font-size: 28px;
+}
+
+p {
+  font-size: 18px;
+}
+
+button, input {
+  width: 85%;
+  max-width: 320px;
+  padding: 16px;
+  font-size: 18px;
+  border-radius: 12px;
+  border: none;
+}
+
+button {
+  background: white;
+  color: #0C2B68;
+  font-weight: bold;
+}
+
+input {
+  text-align: center;
 }

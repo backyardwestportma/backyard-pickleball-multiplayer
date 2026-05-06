@@ -13,10 +13,17 @@ function makeCode() {
 }
 
 function resetBall(room, dir = 1) {
-  room.ball = { x: 200, y: 300, vx: 4.5 * dir, vy: 3, r: 12 };
+  room.ball = {
+    x: 200,
+    y: 300,
+    vx: 4.5 * dir,
+    vy: Math.random() > 0.5 ? 3 : -3,
+    r: 12
+  };
 }
 
 io.on("connection", socket => {
+
   socket.on("createGame", name => {
     const code = makeCode();
 
@@ -48,11 +55,16 @@ io.on("connection", socket => {
     let count = 5;
 
     const timer = setInterval(() => {
+
       if (count > 0) {
         io.to(code).emit("countdown", count);
         count--;
       } else {
         clearInterval(timer);
+
+        // 🔥 SEND GO INSTEAD OF 0
+        io.to(code).emit("countdown", "GO");
+
         room.playing = true;
         resetBall(room, 1);
 
@@ -71,6 +83,7 @@ io.on("connection", socket => {
           b.x += b.vx;
           b.y += b.vy;
 
+          // wall bounce
           if (b.y - b.r <= 0 || b.y + b.r >= 600) {
             b.vy *= -1;
           }
@@ -78,14 +91,17 @@ io.on("connection", socket => {
           const leftY = room.paddles[0];
           const rightY = room.paddles[1];
 
+          // left paddle
           if (b.x - b.r <= 42 && b.y >= leftY && b.y <= leftY + 90 && b.vx < 0) {
             b.vx = Math.abs(b.vx) * 1.05;
           }
 
+          // right paddle
           if (b.x + b.r >= 360 && b.y >= rightY && b.y <= rightY + 90 && b.vx > 0) {
             b.vx = -Math.abs(b.vx) * 1.05;
           }
 
+          // scoring
           if (b.x < -20) {
             room.score[1]++;
             resetBall(room, -1);
@@ -98,6 +114,7 @@ io.on("connection", socket => {
 
           io.to(code).emit("gameState", room);
 
+          // win condition
           if (room.score[0] >= WIN_SCORE || room.score[1] >= WIN_SCORE) {
             room.playing = false;
             clearInterval(room.loop);
@@ -108,8 +125,10 @@ io.on("connection", socket => {
                 : room.players[1].name
             });
           }
+
         }, 1000 / 30);
       }
+
     }, 1000);
   });
 
@@ -123,6 +142,9 @@ io.on("connection", socket => {
       room.paddles[index] = Math.max(0, Math.min(510, y));
     }
   });
+
 });
 
-http.listen(process.env.PORT || 3000);
+http.listen(process.env.PORT || 3000, () => {
+  console.log("Server running");
+});

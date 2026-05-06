@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Pickle Pong</title>
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -12,24 +12,20 @@
   <h1>PICKLE PONG</h1>
   <p>@ BACKYARD WESTPORT MA</p>
 
-  <input id="nameInput" placeholder="Enter your name">
+  <input id="name" placeholder="Enter your name">
 
-  <button onclick="showMulti()">Challenge Another Guest</button>
+  <button onclick="create()">Create Game</button>
+  <input id="code" placeholder="Enter Code">
+  <button onclick="join()">Join Game</button>
 </div>
 
-<div id="multiMenu" class="hidden">
-  <button onclick="createGame()">Create Game</button>
-  <input id="codeInput" placeholder="Enter Code">
-  <button onclick="joinGame()">Join Game</button>
+<div id="wait" class="hidden">
+  <h2>Waiting for another guest</h2>
+  <h1 id="room"></h1>
 </div>
 
-<div id="waitingScreen" class="hidden">
-  <h2>Waiting for opponent...</h2>
-  <h1 id="roomCode"></h1>
-</div>
-
-<div id="countdownScreen" class="hidden">
-  <h1 id="countdownText"></h1>
+<div id="count" class="hidden">
+  <h1 id="countText"></h1>
 </div>
 
 <canvas id="game" width="400" height="600"></canvas>

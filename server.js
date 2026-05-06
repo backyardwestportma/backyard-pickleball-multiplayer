@@ -6,7 +6,7 @@ const io = require("socket.io")(http);
 app.use(express.static("public"));
 
 const rooms = {};
-const WIN_SCORE = 7;
+const WIN = 7;
 
 function makeCode() {
   return Math.floor(1000 + Math.random() * 9000).toString();
@@ -18,76 +18,68 @@ function resetBall(room, dir = 1) {
     y: 300,
     vx: 4 * dir,
     vy: Math.random() * 4 - 2,
-    r: 12
+    r: 10
   };
 }
 
 io.on("connection", (socket) => {
-  socket.on("createGame", (name) => {
+
+  socket.on("create", (name) => {
     const code = makeCode();
 
     rooms[code] = {
-      players: [{ id: socket.id, name: name || "Player 1" }],
+      players: [{ id: socket.id, name }],
       paddles: [250, 250],
       score: [0, 0],
-      playing: false,
-      loop: null
+      playing: false
     };
 
-    resetBall(rooms[code], 1);
-
     socket.join(code);
-    socket.emit("waiting", { code });
+    socket.emit("waiting", code);
   });
 
-  socket.on("joinGame", ({ code, name }) => {
+  socket.on("join", ({ code, name }) => {
     const room = rooms[code];
+    if (!room || room.players.length >= 2) return;
 
-    if (!room || room.players.length >= 2) {
-      socket.emit("errorMessage", "Game not found or full");
-      return;
-    }
-
-    room.players.push({ id: socket.id, name: name || "Player 2" });
+    room.players.push({ id: socket.id, name });
     socket.join(code);
 
-    io.to(code).emit("bothReady", room.players);
+    io.to(code).emit("ready", room.players);
 
     let count = 5;
 
-    function runCountdown() {
+    function countdown() {
       if (count > 0) {
-        io.to(code).emit("countdown", count);
+        io.to(code).emit("count", count);
         count--;
-        setTimeout(runCountdown, 1000);
+        setTimeout(countdown, 1000);
       } else {
-        resetBall(room, 1);
+        resetBall(room);
         room.playing = true;
 
-        io.to(code).emit("startGame");
+        io.to(code).emit("start");
 
-        room.loop = setInterval(() => {
-          gameLoop(code);
-        }, 1000 / 60);
+        room.loop = setInterval(() => updateGame(code), 1000 / 60);
       }
     }
 
-    runCountdown();
+    countdown();
   });
 
   socket.on("move", ({ code, y }) => {
     const room = rooms[code];
     if (!room) return;
 
-    const index = room.players.findIndex(p => p.id === socket.id);
-
-    if (index !== -1) {
-      room.paddles[index] = Math.max(0, Math.min(510, y));
+    const i = room.players.findIndex(p => p.id === socket.id);
+    if (i !== -1) {
+      room.paddles[i] = Math.max(0, Math.min(510, y));
     }
   });
+
 });
 
-function gameLoop(code) {
+function updateGame(code) {
   const room = rooms[code];
   if (!room || !room.playing) return;
 
@@ -96,46 +88,36 @@ function gameLoop(code) {
   b.x += b.vx;
   b.y += b.vy;
 
-  if (b.y - b.r <= 0 || b.y + b.r >= 600) {
-    b.vy *= -1;
-  }
+  if (b.y < 0 || b.y > 600) b.vy *= -1;
 
   const left = room.paddles[0];
   const right = room.paddles[1];
 
-  if (b.x - b.r <= 42 && b.y >= left && b.y <= left + 90 && b.vx < 0) {
-    b.vx = Math.abs(b.vx) * 1.05;
+  if (b.x < 50 && b.y > left && b.y < left + 90 && b.vx < 0) {
+    b.vx *= -1.05;
   }
 
-  if (b.x + b.r >= 360 && b.y >= right && b.y <= right + 90 && b.vx > 0) {
-    b.vx = -Math.abs(b.vx) * 1.05;
+  if (b.x > 350 && b.y > right && b.y < right + 90 && b.vx > 0) {
+    b.vx *= -1.05;
   }
 
-  if (b.x < -20) {
+  if (b.x < 0) {
     room.score[1]++;
     resetBall(room, 1);
   }
 
-  if (b.x > 420) {
+  if (b.x > 400) {
     room.score[0]++;
     resetBall(room, -1);
   }
 
   io.to(code).emit("state", room);
 
-  if (room.score[0] >= WIN_SCORE || room.score[1] >= WIN_SCORE) {
+  if (room.score[0] >= WIN || room.score[1] >= WIN) {
     room.playing = false;
     clearInterval(room.loop);
-
-    const winner =
-      room.score[0] > room.score[1]
-        ? room.players[0].name
-        : room.players[1].name;
-
-    io.to(code).emit("gameOver", { winner });
+    io.to(code).emit("end", room.score);
   }
 }
 
-http.listen(process.env.PORT || 3000, () => {
-  console.log("Server running");
-});
+http.listen(process.env.PORT || 3000);

@@ -8,7 +8,7 @@ app.use(express.static("public"));
 const rooms = {};
 const WIN_SCORE = 7;
 
-function code() {
+function makeCode() {
   return Math.floor(1000 + Math.random() * 9000).toString();
 }
 
@@ -17,20 +17,20 @@ function resetBall(room, dir = 1) {
 }
 
 io.on("connection", socket => {
-  socket.on("createGame", name => {
-    const roomCode = code();
 
-    rooms[roomCode] = {
+  socket.on("createGame", name => {
+    const code = makeCode();
+
+    rooms[code] = {
       players: [{ id: socket.id, name: name || "Player 1" }],
-      paddles: [255, 255],
+      paddles: [250, 250],
       ball: { x: 200, y: 300, vx: 4.5, vy: 3, r: 12 },
       score: [0, 0],
-      playing: false,
-      loop: null
+      playing: false
     };
 
-    socket.join(roomCode);
-    socket.emit("waiting", { code: roomCode });
+    socket.join(code);
+    socket.emit("waiting", { code });
   });
 
   socket.on("joinGame", ({ code, name }) => {
@@ -71,44 +71,40 @@ io.on("connection", socket => {
           const leftY = room.paddles[0];
           const rightY = room.paddles[1];
 
-          if (b.x - b.r <= 42 && b.x > 25 && b.y >= leftY && b.y <= leftY + 90 && b.vx < 0) {
-            b.vx = Math.abs(b.vx) * 1.03;
-            b.vy += (b.y - (leftY + 45)) * 0.05;
+          if (b.x - b.r <= 42 && b.y >= leftY && b.y <= leftY + 90 && b.vx < 0) {
+            b.vx = Math.abs(b.vx) * 1.05;
           }
 
-          if (b.x + b.r >= 360 && b.x < 375 && b.y >= rightY && b.y <= rightY + 90 && b.vx > 0) {
-            b.vx = -Math.abs(b.vx) * 1.03;
-            b.vy += (b.y - (rightY + 45)) * 0.05;
+          if (b.x + b.r >= 360 && b.y >= rightY && b.y <= rightY + 90 && b.vx > 0) {
+            b.vx = -Math.abs(b.vx) * 1.05;
           }
 
-          if (b.x < -25) {
+          if (b.x < -20) {
             room.score[1]++;
             resetBall(room, -1);
           }
 
-          if (b.x > 425) {
+          if (b.x > 420) {
             room.score[0]++;
             resetBall(room, 1);
           }
 
-          io.to(code).emit("gameState", {
-            players: room.players,
-            paddles: room.paddles,
-            ball: room.ball,
-            score: room.score
-          });
+          io.to(code).emit("gameState", room);
 
           if (room.score[0] >= WIN_SCORE || room.score[1] >= WIN_SCORE) {
             room.playing = false;
             clearInterval(room.loop);
 
             io.to(code).emit("gameOver", {
-              winner: room.score[0] > room.score[1] ? room.players[0].name : room.players[1].name,
-              score: room.score
+              winner: room.score[0] > room.score[1]
+                ? room.players[0].name
+                : room.players[1].name
             });
           }
+
         }, 1000 / 30);
       }
+
     }, 1000);
   });
 
@@ -117,12 +113,11 @@ io.on("connection", socket => {
     if (!room) return;
 
     const index = room.players.findIndex(p => p.id === socket.id);
-    if (index === -1) return;
-
-    room.paddles[index] = Math.max(0, Math.min(510, y));
+    if (index !== -1) {
+      room.paddles[index] = Math.max(0, Math.min(510, y));
+    }
   });
+
 });
 
-http.listen(process.env.PORT || 3000, () => {
-  console.log("V3 server running");
-});
+http.listen(process.env.PORT || 3000);

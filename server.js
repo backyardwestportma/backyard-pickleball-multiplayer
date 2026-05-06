@@ -13,13 +13,11 @@ io.on("connection", (socket) => {
     const code = Math.floor(1000 + Math.random() * 9000).toString();
 
     rooms[code] = {
-      players: [{ id: socket.id, name }],
-      ball: { x: 200, y: 300, vx: 4, vy: 3 },
-      score: [0, 0]
+      players: [{ id: socket.id, name }]
     };
 
     socket.join(code);
-    socket.emit("gameCreated", code);
+    socket.emit("waiting", code);
   });
 
   socket.on("joinGame", ({ code, name }) => {
@@ -29,14 +27,12 @@ io.on("connection", (socket) => {
       room.players.push({ id: socket.id, name });
       socket.join(code);
 
-      io.to(code).emit("startGame", room.players);
+      // notify both players
+      io.to(code).emit("bothReady", room.players);
+    } else {
+      socket.emit("errorMessage", "Invalid or full room");
     }
   });
 
-  socket.on("update", ({ code, state }) => {
-    socket.to(code).emit("update", state);
-  });
-
 });
-
 http.listen(process.env.PORT || 3000);

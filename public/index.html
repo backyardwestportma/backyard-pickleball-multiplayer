@@ -1,37 +1,39 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Pickle Pong</title>
 <link rel="stylesheet" href="styles.css">
 </head>
-
 <body>
 
-<div id="menu">
+<div id="menu" class="screen">
   <h1>PICKLE PONG</h1>
   <p>@ BACKYARD WESTPORT MA</p>
-
   <input id="name" placeholder="Enter your name">
-
-  <button onclick="create()">Create Game</button>
+  <button onclick="createGame()">Create Game</button>
   <input id="code" placeholder="Enter Code">
-  <button onclick="join()">Join Game</button>
+  <button onclick="joinGame()">Join Game</button>
 </div>
 
-<div id="wait" class="hidden">
-  <h2>Waiting for another guest</h2>
+<div id="wait" class="screen hidden">
+  <h2>Waiting for another guest...</h2>
   <h1 id="room"></h1>
+  <p>Share this code</p>
 </div>
 
-<div id="count" class="hidden">
-  <h1 id="countText"></h1>
+<div id="count" class="screen hidden">
+  <h1 id="countText">5</h1>
+</div>
+
+<div id="end" class="screen hidden">
+  <h1 id="winnerText"></h1>
+  <button onclick="location.reload()">Play Again</button>
 </div>
 
 <canvas id="game" width="400" height="600"></canvas>
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="script.js"></script>
-
 </body>
 </html>

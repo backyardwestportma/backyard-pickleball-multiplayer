@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Backyard Pickleball</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="menu">
+  <button onclick="createGame()">Create Game</button>
+  <input id="codeInput" placeholder="Enter Code">
+  <button onclick="joinGame()">Join Game</button>
+</div>
+
+<canvas id="game" width="400" height="600"></canvas>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="script.js"></script>
+</body>
+</html>

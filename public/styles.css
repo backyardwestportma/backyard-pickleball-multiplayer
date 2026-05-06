@@ -1,0 +1,12 @@
+body {
+  text-align: center;
+  background: #0C2B68;
+  color: white;
+  font-family: sans-serif;
+}
+
+canvas {
+  background: #0C2B68;
+  border: 2px solid white;
+  margin-top: 20px;
+}
